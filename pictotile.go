@@ -27,7 +27,7 @@ import ("flag"
 	var spacingX uint
 	var spacingY uint
 	var spriteMode bool
-	var delimiter string
+	var outFormat string
 
 type sImage interface {
 	image.Image
@@ -47,8 +47,8 @@ func main() {
 	flag.UintVar(&spacing, "s", 0, "Distance between tiles")
 	flag.UintVar(&spacingX, "sx", 0, "Horizontal distance between tiles")
 	flag.UintVar(&spacingY, "sy", 0, "Vertical distance between tiles")
-	flag.BoolVar(&spriteMode, "t", false, "Sets first color in image as transparency (color 0) for entire image")
-	flag.StringVar(&delimiter, "c", "", "Sets any characters used to seperate values in output")
+	flag.BoolVar(&spriteMode, "t", false, "Sets first color in tile as transparency (color 0)")
+	flag.StringVar(&outFormat, "f", "0x%X, ", "C Style format for output data (printed in a loop for each byte")
 	flag.Parse();
 
 	//if dimX, dimY are unset
@@ -117,7 +117,7 @@ func main() {
 		if i%16 == 0 && i != 0 {
 			_, err = outFile.WriteString("\n")
 		}
-		_, err = fmt.Fprintf(outFile, "0x%X%s", []byte{outputData[i]}, delimiter)
+		_, err = fmt.Fprintf(outFile, outFormat, []byte{outputData[i]})
 		if err != nil {
 			log.Fatal(err)
 		}
