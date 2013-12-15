@@ -10,6 +10,7 @@ import ("flag"
 	"os"
  	"image"
 	"log"
+	"fmt"
 	"image/color"
  	_ "image/png"
  	_ "image/jpeg"
@@ -26,12 +27,18 @@ import ("flag"
 	var spacingX uint
 	var spacingY uint
 	var spriteMode bool
+	var delimiter string
+
+type sImage interface {
+	image.Image
+	SubImage(r image.Rectangle) image.Image
+}
 
 func main() {
 	var file *os.File
 	var err error
 
-	flag.UintVar(&dimX, "d", 8, "Square dimension of each tile. Use only for square. Non multiple-of-8 values may cause undefined behaviour")
+	flag.UintVar(&dim, "d", 8, "Square dimension of each tile. Use only for square. Non multiple-of-8 values may cause undefined behaviour")
 	flag.UintVar(&dimX, "w", 8, "Width of each tile")
 	flag.UintVar(&dimY, "h", 8, "Height of each tile")
 	flag.UintVar(&offset, "o", 0, "Offset of the first tile from both the top and left edge")
@@ -41,6 +48,7 @@ func main() {
 	flag.UintVar(&spacingX, "sx", 0, "Horizontal distance between tiles")
 	flag.UintVar(&spacingY, "sy", 0, "Vertical distance between tiles")
 	flag.BoolVar(&spriteMode, "t", false, "Sets first color in image as transparency (color 0) for entire image")
+	flag.StringVar(&delimiter, "c", "", "Sets any characters used to seperate values in output")
 	flag.Parse();
 
 	//if dimX, dimY are unset
@@ -78,19 +86,16 @@ func main() {
 	var outputData []byte
 	tileset, format, err := image.Decode(file)
 	if err == nil {
-		log.Println("%s decoded from format %s", fname, format)
+		log.Println(fname, "decoded from format", format)
 	} else {
 		log.Fatal(err)
 	}
 	tilesetSize := tileset.Bounds()
 
-	x := offsetX
-	y := offsetY
 	//iterate through every tile fully contained within image
-	for ; y + dimY - 1 < uint(tilesetSize.Max.Y); y += spacingY {
-		for ; x + dimX - 1 < uint(tilesetSize.Max.X); x += spacingX {
-			//Will probably error due to not specific enough types
-			tile := tileset.(*image.RGBA).SubImage(image.Rect(int(x),int(y),int(x+dimX),int(y+dimY)))
+	for y := offsetY; y + dimY - 1 < uint(tilesetSize.Max.Y); y += dimY + spacingY {
+		for x := offsetX; x + dimX - 1 < uint(tilesetSize.Max.X); x += dimX + spacingX {
+			tile := tileset.(sImage).SubImage(image.Rect(int(x),int(y),int(x+dimX),int(y+dimY)))
 			//Elipsis explodes the slice
 			outputData = append(outputData, Encode(tile)...)
 			//append slice to data
@@ -100,37 +105,58 @@ func main() {
 	var outFile *os.File
 	if flag.Arg(1) == "-" || flag.Arg(1) == "" {
 		outFile = os.Stdout
+		log.Println("Outputting to stdout")
 	} else {
 		outFile, err = os.Create(flag.Arg(1))
 		if err != nil {
 			log.Fatal(err)
 		}
+		log.Println("Outputting to file")
 	}
-	_, err = outFile.Write(outputData)
-	if err != nil {
-		log.Fatal(err)
+	for i := 0; i < len(outputData); i++ {
+		if i%16 == 0 && i != 0 {
+			_, err = outFile.WriteString("\n")
+		}
+		_, err = fmt.Fprintf(outFile, "0x%X%s", []byte{outputData[i]}, delimiter)
+		if err != nil {
+			log.Fatal(err)
+		}
+		//_, err = outFile.WriteString(delimiter)
+		//if err != nil {
+		//	log.Fatal(err)
+		//}
 	}
 	return
 }
 
+
+
 func Encode(tile image.Image) []byte {
 	var palette [4]color.Color
+	for i := range palette {
+		palette[i] = color.Gray{0}
+	}
+	//var paletteMap map[color.Color]byte
 	var colCount byte = 0;
 	//Lets just see if Go supports this
 	size := tile.Bounds()
-	var rawData = make([]byte, size.Max.X*size.Max.Y)
-	var data = make([]byte, size.Max.X*size.Max.Y*2/8)
+	//Not a huge fan of using the globals here but size.Max.Y-size.Min.Y is hella messy
+	var rawData = make([]byte, dimX*dimY)
+	var data = make([]byte, dimX*dimY/4)
 	//list all colors. Drop any colors more than 4
-	for y := 0; y < size.Max.Y; y++ {
-		for x:= 0; x < size.Max.X; x++ {
+	for y := size.Min.Y; y < size.Max.Y; y++ {
+		for x:= size.Min.X; x < size.Max.X; x++ {
 			color := tile.At(x,y)
-			for i := 0; i<4; i++ {
+			colorFound := false
+			for i := 0; i<int(colCount); i++ {
 				if color == palette[i] {
+					colorFound = true
 					break
-				} else {
-					palette[colCount] = color
-					colCount++
 				}
+			}
+			if !colorFound {
+				palette[colCount] = color
+				colCount++
 			}
 			if colCount >= 4 {
 				break
@@ -169,8 +195,8 @@ func Encode(tile image.Image) []byte {
 
 	//create slice of color indices
 	var pixelCount uint
-	for y := 0; y < size.Max.Y; y++ {
-		for x:= 0; x < size.Max.X; x++ {
+	for y := size.Min.Y; y < size.Max.Y; y++ {
+		for x:= size.Min.X; x < size.Max.X; x++ {
 			var i byte
 			for i = 0; i < 4; i++ {
 				if tile.At(x,y) == palette[i] {
@@ -185,14 +211,14 @@ func Encode(tile image.Image) []byte {
 	//set the index in the slice
 	//"Encode" into gameboy format
 	//for each row
-	for i := 0; i < size.Max.X*size.Max.Y; i += 8 {
+	for i := 0; i < int(dimX*dimY/8); i += 1 {
 		//for each pixel in the row
 		for n:= 0; n<8; n++ {
 			//I hope this works
 			//First byte is less significant bits of first row
-			data[2*i] += rawData[i] & 1 << 7-byte(n)
+			data[2*i] = ((rawData[8*i+n] & 1) << (7-byte(n))) | data[2*i]
 			//Second byte is more significant bits of second row
-			data[2*i+1] += rawData[i] & 2 << 6-byte(n)
+			data[2*i+1] = ((rawData[8*i+n] & 2) >> 1 << (7-byte(n))) | data[2*i+1]
 		}
 	}
 	return data
