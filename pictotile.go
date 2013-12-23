@@ -34,6 +34,10 @@ type sImage interface {
 	SubImage(r image.Rectangle) image.Image
 }
 
+type palette [4]color.Color
+
+var palettes []palette
+
 func main() {
 	var file *os.File
 	var err error
@@ -132,15 +136,16 @@ func main() {
 
 
 func Encode(tile image.Image) []byte {
-	var palette [4]color.Color
-	for i := range palette {
-		palette[i] = color.Gray{0}
+	var tilePalette palette
+	for i := range tilePalette {
+		tilePalette[i] = color.Gray{0}
 	}
-	//var paletteMap map[color.Color]byte
+	//Could we do better with a map?
+	//var tilePaletteMap map[color.Color]byte
 	var colCount byte = 0;
-	//Lets just see if Go supports this
 	size := tile.Bounds()
-	//Not a huge fan of using the globals here but size.Max.Y-size.Min.Y is hella messy
+	//Not a huge fan of using the globals here but size.Max.Y-size.Min.Y is
+	//hella messy, and we really don't have a case where dim != 8
 	var rawData = make([]byte, dimX*dimY)
 	var data = make([]byte, dimX*dimY/4)
 	//list all colors. Drop any colors more than 4
@@ -149,13 +154,13 @@ func Encode(tile image.Image) []byte {
 			color := tile.At(x,y)
 			colorFound := false
 			for i := 0; i<int(colCount); i++ {
-				if color == palette[i] {
+				if color == tilePalette[i] {
 					colorFound = true
 					break
 				}
 			}
 			if !colorFound {
-				palette[colCount] = color
+				tilePalette[colCount] = color
 				colCount++
 			}
 			if colCount >= 4 {
@@ -168,30 +173,7 @@ func Encode(tile image.Image) []byte {
 	}
 
 	//sort colors (checking for -t)
-	var min int = 0 //unnecessarily large because casting is annoying
-	if spriteMode {
-		min = 1
-	}
-	//Since it's such a small list, we're not checking if swapping is still
-	//occurring
-	for i := 0; i<4; i++ {
-		for j := min; j<3-i; j++ {
-			r0, g0, b0, _ := palette[j].RGBA()
-			r1, g1, b1, _ := palette[j+1].RGBA()
-			if r1 + g1 + b1 > r0 + g0 + b0 {
-				palette[j], palette[j+1] = palette[j+1], palette[j]
-			} else if r1 + g1 + b1 == r0 + g0 + b0 {
-				if g1 + b1 > g0 + b0 {
-					palette[j], palette[j+1] = palette[j+1], palette[j]
-				} else if g1 + b1 == g0 + b0 {
-					if b1 > b0 {
-						palette[j], palette[j+1] = palette[j+1], palette[j]
-					}
-				}
-			}
-			//compare
-		}
-	}
+	tilePalette = sortPalette(tilePalette)
 
 	//create slice of color indices
 	var pixelCount uint
@@ -199,7 +181,7 @@ func Encode(tile image.Image) []byte {
 		for x:= size.Min.X; x < size.Max.X; x++ {
 			var i byte
 			for i = 0; i < 4; i++ {
-				if tile.At(x,y) == palette[i] {
+				if tile.At(x,y) == tilePalette[i] {
 					break
 				}
 			}
@@ -222,4 +204,35 @@ func Encode(tile image.Image) []byte {
 		}
 	}
 	return data
+}
+
+//sortPalette(p palette) sorts the colors in a palette approximately from
+//brightest to dimmest using a simple bubblesort
+func sortPalette(p palette) palette {
+	//Since it's such a small list, we're not checking if swapping is still
+	//occurring, just sorting through to max time. More efficient sorting
+	//would be nice but likely isn't worth the effort
+	var min int = 0 //unnecessarily large type because casting is annoying
+	//Spritemode leaves the first color identified where it is, no sorting
+	if spriteMode {
+		min = 1
+	}
+	for i := 0; i<4; i++ {
+		for j := min; j<3-i; j++ {
+			r0, g0, b0, _ := p[j].RGBA()
+			r1, g1, b1, _ := p[j+1].RGBA()
+			if r1 + g1 + b1 > r0 + g0 + b0 {
+				p[j], p[j+1] = p[j+1], p[j]
+			} else if r1 + g1 + b1 == r0 + g0 + b0 {
+				if g1 + b1 > g0 + b0 {
+					p[j], p[j+1] = p[j+1], p[j]
+				} else if g1 + b1 == g0 + b0 {
+					if b1 > b0 {
+						p[j], p[j+1] = p[j+1], p[j]
+					}
+				}
+			}
+		}
+	}
+	return p
 }
