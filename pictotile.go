@@ -42,9 +42,13 @@ func main() {
 	var file *os.File
 	var err error
 
-	flag.UintVar(&dim, "d", 8, "Square dimension of each tile. Use only for square. Non multiple-of-8 values may cause undefined behaviour")
-	flag.UintVar(&dimX, "w", 8, "Width of each tile")
-	flag.UintVar(&dimY, "h", 8, "Height of each tile")
+	//flag.UintVar(&dim, "d", 8, "Square dimension of each tile. Use only for square. Non multiple-of-8 values may cause undefined behaviour.")
+	//flag.UintVar(&dimX, "w", 8, "Width of each tile. Currently and possibly eternally unimplemented")
+	//flag.UintVar(&dimY, "h", 8, "Height of each tile. Currently and possibly eternally unimplemented")
+
+	//The whole dimensioning thing doesn't really work with GB format. It will
+	//probably be removed completely in future updates.
+	dimX, dimY, dim = 8, 8, 8
 	flag.UintVar(&offset, "o", 0, "Offset of the first tile from both the top and left edge")
 	flag.UintVar(&offsetX, "x", 0, "Horizontal offset of first tile from left")
 	flag.UintVar(&offsetY, "y", 0, "Vertical offset of first tile from top")
@@ -137,6 +141,7 @@ func main() {
 
 func Encode(tile image.Image) []byte {
 	var tilePalette palette
+	var tileColors []color.Color
 	for i := range tilePalette {
 		tilePalette[i] = color.Gray{0}
 	}
@@ -154,13 +159,13 @@ func Encode(tile image.Image) []byte {
 			color := tile.At(x,y)
 			colorFound := false
 			for i := 0; i<int(colCount); i++ {
-				if color == tilePalette[i] {
+				if color == tileColors[i] {
 					colorFound = true
 					break
 				}
 			}
 			if !colorFound {
-				tilePalette[colCount] = color
+				tileColors = append(tileColors, color)
 				colCount++
 			}
 			if colCount >= 4 {
@@ -173,7 +178,26 @@ func Encode(tile image.Image) []byte {
 	}
 
 	//sort colors (checking for -t)
-	tilePalette = sortPalette(tilePalette)
+	var paletteFound bool
+	for i := range palettes {
+		//compare current palette against all in palettes. Shouldn't
+		//run at all if no palettes are defined
+		if palettes[i].compare(tileColors) {
+			//Order of already defined palette to be preserved
+			tilePalette = palettes[i]
+			paletteFound = true
+			//we're done, let's move on
+			break
+		}
+	}
+	//if palette does not match an existing palette
+	if !paletteFound {
+		//sort the palette nicely
+		tilePalette = sliceToPalette(tileColors)
+		tilePalette = tilePalette.sort()
+		//add new palette to set of image palettes
+		palettes = append(palettes, tilePalette)
+	}
 
 	//create slice of color indices
 	var pixelCount uint
@@ -206,9 +230,9 @@ func Encode(tile image.Image) []byte {
 	return data
 }
 
-//sortPalette(p palette) sorts the colors in a palette approximately from
+//sort() sorts the colors in a palette approximately from
 //brightest to dimmest using a simple bubblesort
-func sortPalette(p palette) palette {
+func (p palette) sort() palette{
 	//Since it's such a small list, we're not checking if swapping is still
 	//occurring, just sorting through to max time. More efficient sorting
 	//would be nice but likely isn't worth the effort
@@ -233,6 +257,40 @@ func sortPalette(p palette) palette {
 				}
 			}
 		}
+	}
+	return p
+}
+
+//Compares a palette to an array of colors to determine if all colors are in the palette.
+func (a palette) compare(b []color.Color) bool{
+	var match bool
+	//select a color to check
+	for i := range b {
+		//innocent until proven guilty
+		match = false
+		//is it anywhere in b?
+		for j := range a {
+			if a[j] == b[i] {
+				match = true
+				break
+			}
+		}
+		//No? Not the same palette
+		if !match {
+			return false
+		}
+	}
+	//No match fails, success!
+	return true
+}
+
+func sliceToPalette(a []color.Color) palette {
+	var p palette
+	for i := range a {
+		if i >= 4 {
+			break
+		}
+		p[i] = a[i]
 	}
 	return p
 }
