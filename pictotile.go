@@ -134,6 +134,8 @@ func main() {
 		//	log.Fatal(err)
 		//}
 	}
+	//End the file with a newline. Programs like that.
+	fmt.Fprintf(outFile, "\n")
 	return
 }
 
