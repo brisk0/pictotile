@@ -1,19 +1,25 @@
 //A simple tool for converting png, gif & jpg images into tiles useful for gameboy programming, with possible further applications.
-//In the simplest case, tiles are to be read left to right then top to bottom, and each tile is to be individually converted into GBC 2-bit format.
-//Future versions may include ability to write more than one tile together, e.g., so that each tile of a 16x16 image are writted one after the other.
-//Color palettes are determined on a tile by tile basis. Colors are ordered by sum of RGB highest → lowest, with B > G > R being used for ties.
-//Additional colors are set to black, and an error printed. With -t enabled the first color on each tile will be treated as transparency (color 0),
+
+//In the simplest case, tiles are to be read left to right then top to bottom,
+//and each tile is to be individually converted into GBC 2-bit format. When
+//dim is set, this order is followed in each individual sprite, so that the
+//data from each sprite is kept together.
+
+//Colors in created palettes are ordered by sum of RGB highest → lowest, with
+//B > G > R being used for ties.
+//Additional colors are set to black, and an error printed. With -t enabled
+//the first color on each tile will be treated as transparency (color 0),
 //overriding color sorting in this instance.
 package main
 
 import (flag "github.com/ogier/pflag"
 	"os"
- 	"image"
+	"image"
 	"log"
 	"fmt"
 	"image/color"
- 	_ "image/png"
- 	_ "image/jpeg"
+	_ "image/png"
+	_ "image/jpeg"
 	_ "image/gif")
 
 	//Organise settings flags
