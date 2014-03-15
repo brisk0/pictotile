@@ -41,6 +41,10 @@ pictotile downloads (version snapshot)
  * [pictotile\_openbsd\_386.zip](pictotile_openbsd_386.zip)
  * [pictotile\_openbsd\_amd64.zip](pictotile_openbsd_amd64.zip)
 
+### Other files
+
+ * [README.md](README.md)
+
 ### Plan 9
 
  * [pictotile\_plan9\_386.zip](pictotile_plan9_386.zip)
