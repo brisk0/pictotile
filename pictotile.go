@@ -6,7 +6,7 @@
 //overriding color sorting in this instance.
 package main
 
-import ("flag"
+import (flag "github.com/ogier/pflag"
 	"os"
  	"image"
 	"log"
@@ -49,14 +49,14 @@ func main() {
 	//The whole dimensioning thing doesn't really work with GB format. It will
 	//probably be removed completely in future updates.
 	dimX, dimY, dim = 8, 8, 8
-	flag.UintVar(&offset, "o", 0, "Offset of the first tile from both the top and left edge")
-	flag.UintVar(&offsetX, "x", 0, "Horizontal offset of first tile from left")
-	flag.UintVar(&offsetY, "y", 0, "Vertical offset of first tile from top")
-	flag.UintVar(&spacing, "s", 0, "Distance between tiles")
-	flag.UintVar(&spacingX, "sx", 0, "Horizontal distance between tiles")
-	flag.UintVar(&spacingY, "sy", 0, "Vertical distance between tiles")
-	flag.BoolVar(&spriteMode, "t", false, "Sets first color in tile as transparency (color 0)")
-	flag.StringVar(&outFormat, "f", "0x%X, ", "C Style format for output data (printed in a loop for each byte")
+	flag.UintVarP(&offset, "offset", "o", 0, "Offset of the first tile from both the top and left edge")
+	flag.UintVarP(&offsetX, "xoffset", "x", 0, "Horizontal offset of first tile from left")
+	flag.UintVarP(&offsetY, "yoffset", "y", 0, "Vertical offset of first tile from top")
+	flag.UintVarP(&spacing, "spacing", "s", 0, "Distance between tiles")
+	flag.UintVarP(&spacingX, "xspacing", "X", 0, "Horizontal distance between tiles")
+	flag.UintVarP(&spacingY, "yspacing", "Y", 0, "Vertical distance between tiles")
+	flag.BoolVarP(&spriteMode, "spritemode", "t", false, "Sets first color in tile as transparency (color 0)")
+	flag.StringVarP(&outFormat, "format", "f", "0x%X, ", "C Style format for output data (printed in a loop for each byte")
 	flag.Parse();
 
 	//if dimX, dimY are unset
