@@ -49,8 +49,8 @@ func main() {
 	var err error
 
 	flag.UintVarP(&dim, "dim", "d", 1, "Square dimension in number tiles of each sprite")
-	flag.UintVarP(&dimX, "width", "w", 1, "Width of each sprite in number of tiles.")
-	flag.UintVarP(&dimY, "height", "h", 1, "Height of each tile in number of tiles.")
+	flag.UintVarP(&dimX, "width", "w", 1, "Width of each sprite in number of tiles")
+	flag.UintVarP(&dimY, "height", "h", 1, "Height of each tile in number of tiles")
 	flag.UintVarP(&offset, "offset", "o", 0, "Offset of the first tile from both the top and left edge")
 	flag.UintVarP(&offsetX, "xoffset", "x", 0, "Horizontal offset of first tile from left")
 	flag.UintVarP(&offsetY, "yoffset", "y", 0, "Vertical offset of first tile from top")
@@ -58,7 +58,7 @@ func main() {
 	flag.UintVarP(&spacingX, "xspacing", "X", 0, "Horizontal distance between sprites")
 	flag.UintVarP(&spacingY, "yspacing", "Y", 0, "Vertical distance between sprites")
 	flag.BoolVarP(&spriteMode, "spritemode", "t", false, "Sets first color in tile as transparency (color 0)")
-	flag.StringVarP(&outFormat, "format", "f", "0x%X, ", "C Style format for output data (printed in a loop for each byte")
+	flag.StringVarP(&outFormat, "format", "f", "0x%X, ", "C Style format for output data (printed in a loop for each byte)")
 	flag.Parse();
 
 	//if dimX, dimY are unset
