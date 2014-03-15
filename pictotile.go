@@ -42,25 +42,21 @@ func main() {
 	var file *os.File
 	var err error
 
-	//flag.UintVar(&dim, "d", 8, "Square dimension of each tile. Use only for square. Non multiple-of-8 values may cause undefined behaviour.")
-	//flag.UintVar(&dimX, "w", 8, "Width of each tile. Currently and possibly eternally unimplemented")
-	//flag.UintVar(&dimY, "h", 8, "Height of each tile. Currently and possibly eternally unimplemented")
-
-	//The whole dimensioning thing doesn't really work with GB format. It will
-	//probably be removed completely in future updates.
-	dimX, dimY, dim = 8, 8, 8
+	flag.UintVarP(&dim, "dim", "d", 1, "Square dimension in number tiles of each sprite")
+	flag.UintVarP(&dimX, "width", "w", 1, "Width of each sprite in number of tiles.")
+	flag.UintVarP(&dimY, "height", "h", 1, "Height of each tile in number of tiles.")
 	flag.UintVarP(&offset, "offset", "o", 0, "Offset of the first tile from both the top and left edge")
 	flag.UintVarP(&offsetX, "xoffset", "x", 0, "Horizontal offset of first tile from left")
 	flag.UintVarP(&offsetY, "yoffset", "y", 0, "Vertical offset of first tile from top")
-	flag.UintVarP(&spacing, "spacing", "s", 0, "Distance between tiles")
-	flag.UintVarP(&spacingX, "xspacing", "X", 0, "Horizontal distance between tiles")
-	flag.UintVarP(&spacingY, "yspacing", "Y", 0, "Vertical distance between tiles")
+	flag.UintVarP(&spacing, "spacing", "s", 0, "Distance between sprites")
+	flag.UintVarP(&spacingX, "xspacing", "X", 0, "Horizontal distance between sprites")
+	flag.UintVarP(&spacingY, "yspacing", "Y", 0, "Vertical distance between sprites")
 	flag.BoolVarP(&spriteMode, "spritemode", "t", false, "Sets first color in tile as transparency (color 0)")
 	flag.StringVarP(&outFormat, "format", "f", "0x%X, ", "C Style format for output data (printed in a loop for each byte")
 	flag.Parse();
 
 	//if dimX, dimY are unset
-	if dimX == dimY && dimY == 8 {
+	if dimX == dimY && dimY == 1 {
 		//use the value from dim instead
 		dimY = dim
 		dimX = dim
@@ -100,13 +96,22 @@ func main() {
 	}
 	tilesetSize := tileset.Bounds()
 
-	//iterate through every tile fully contained within image
-	for y := offsetY; y + dimY - 1 < uint(tilesetSize.Max.Y); y += dimY + spacingY {
-		for x := offsetX; x + dimX - 1 < uint(tilesetSize.Max.X); x += dimX + spacingX {
-			tile := tileset.(sImage).SubImage(image.Rect(int(x),int(y),int(x+dimX),int(y+dimY)))
-			//Elipsis explodes the slice
-			outputData = append(outputData, Encode(tile)...)
-			//append slice to data
+	//Sprite dimensions
+	sh := 8*dimY
+	sw := 8*dimX
+	//iterate through every sprite FULLY contained within image
+	for sy := offsetY; sy + sh -1 < uint(tilesetSize.Max.Y); sy += sh + spacingY {
+		for sx := offsetX;  sx + sw -1 < uint(tilesetSize.Max.X); sx += sw + spacingX {
+			//iterate through every tile fully contained within sprite. Note that there
+			//should never be partial containment.
+			for y := sy; y + 8 - 1 < sy + sh; y += 8 {
+				for x := sx; x + 8 - 1 < sx + sw; x += 8 {
+					tile := tileset.(sImage).SubImage(image.Rect(int(x),int(y),int(x+8),int(y+8)))
+					//Ellipsis explodes the slice
+					outputData = append(outputData, Encode(tile)...)
+					//append slice to data
+				}
+			}
 		}
 	}
 	//output data to file or stdOut
@@ -129,10 +134,6 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		//_, err = outFile.WriteString(delimiter)
-		//if err != nil {
-		//	log.Fatal(err)
-		//}
 	}
 	//End the file with a newline. Programs like that.
 	fmt.Fprintf(outFile, "\n")
@@ -151,10 +152,8 @@ func Encode(tile image.Image) []byte {
 	//var tilePaletteMap map[color.Color]byte
 	var colCount byte = 0;
 	size := tile.Bounds()
-	//Not a huge fan of using the globals here but size.Max.Y-size.Min.Y is
-	//hella messy, and we really don't have a case where dim != 8
-	var rawData = make([]byte, dimX*dimY)
-	var data = make([]byte, dimX*dimY/4)
+	var rawData = make([]byte, 8*8)
+	var data = make([]byte, 8*8/4)
 	//list all colors. Drop any colors more than 4
 	for y := size.Min.Y; y < size.Max.Y; y++ {
 		for x:= size.Min.X; x < size.Max.X; x++ {
@@ -219,7 +218,7 @@ func Encode(tile image.Image) []byte {
 	//set the index in the slice
 	//"Encode" into gameboy format
 	//for each row
-	for i := 0; i < int(dimX*dimY/8); i += 1 {
+	for i := 0; i < int(8*8/8); i += 1 {
 		//for each pixel in the row
 		for n:= 0; n<8; n++ {
 			//I hope this works
