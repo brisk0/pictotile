@@ -17,6 +17,7 @@ Input and output default to stdin/stdout, which can be set explicitly using "-" 
 
 Options
 -------
+Note: Values shown below are defaults, description is for modifying the value.
 
 -d, --dim=1: Square dimension in number tiles of each sprite
 
