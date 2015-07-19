@@ -3,6 +3,17 @@ pictotile
 
 Simple tool for converting images to gameboy tile data.
 
+Installation
+------------
+
+Ensure the golang toolchain is installed on your machine, then run from the repository root:
+
+> $ go build pictotile.go
+
+This produces a self-contained binary and should be able to be placed and run anywhere.
+
+Note that there are binaries in the Snapshots directory. These are outdated due to problems with the cross compiler. The binary in the root directory is current and built for linux, amd_64. Building for yourself is always preferable, and should always work.
+
 Usage
 -----
 
