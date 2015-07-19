@@ -250,8 +250,17 @@ func (p palette) sort() palette{
 	}
 	for i := 0; i<4; i++ {
 		for j := min; j<3-i; j++ {
-			r0, g0, b0, _ := p[j].RGBA()
-			r1, g1, b1, _ := p[j+1].RGBA()
+			var r0, g0, b0, r1, g1, b1 uint32;
+			if p[j] != nil {
+				r0, g0, b0, _ = p[j].RGBA()
+			} else {
+				r0, g0, b0 = 0, 0, 0
+			}
+			if p[j+1] != nil {
+				r1, g1, b1, _ = p[j+1].RGBA()
+			} else {
+				r1, g1, b1 = 0, 0, 0
+			}
 			if r1 + g1 + b1 > r0 + g0 + b0 {
 				p[j], p[j+1] = p[j+1], p[j]
 			} else if r1 + g1 + b1 == r0 + g0 + b0 {
