@@ -40,9 +40,8 @@ type sImage interface {
 	SubImage(r image.Rectangle) image.Image
 }
 
-type palette [4]color.Color
 
-var palettes []palette
+var palettes []color.Palette
 
 func main() {
 	var file *os.File
@@ -149,79 +148,88 @@ func main() {
 
 
 func Encode(tile image.Image) []byte {
-	var tilePalette palette
-	var tileColors []color.Color
-	for i := range tilePalette {
-		tilePalette[i] = color.Gray{0}
-	}
-	//Could we do better with a map?
-	//var tilePaletteMap map[color.Color]byte
-	var colCount byte = 0;
+
 	size := tile.Bounds()
-	var rawData = make([]byte, 8*8)
-	var data = make([]byte, 8*8/4)
-	//list all colors. Drop any colors more than 4
-	for y := size.Min.Y; y < size.Max.Y; y++ {
-		for x:= size.Min.X; x < size.Max.X; x++ {
-			color := tile.At(x,y)
-			colorFound := false
-			for i := 0; i<int(colCount); i++ {
-				if color == tileColors[i] {
-					colorFound = true
+	var rawData = make([]byte, 8*8) //Pixel array of palette indices
+	var data = make([]byte, 8*8/4) //GB tile data array
+
+	var tilePalette color.Palette
+	//If image is indexed we want to use the predefined palette.
+	var tilePaletted, alreadyPaletted = tile.(*image.Paletted)
+	if alreadyPaletted {
+		if len(tilePaletted.Palette) >= 4 {
+			//We already know our colors. Truncate to the permitted 4 values
+			tilePalette = tilePaletted.Palette[:4]
+		} else {
+			tilePalette = tilePaletted.Palette
+		}
+	} else {
+		//We need to figure out out own palette
+		//Find all colors. Drop any colors more than 4
+		for y := size.Min.Y; y < size.Max.Y; y++ {
+			for x:= size.Min.X; x < size.Max.X; x++ {
+				color := tile.At(x,y)
+				colorFound := false
+				for i := 0; i < len(tilePalette); i++ {
+					if color == tilePalette[i] {
+						colorFound = true
+						break
+					}
+				}
+				if !colorFound {
+					tilePalette = append(tilePalette, color)
+				}
+				if len(tilePalette) >= 4 {
 					break
 				}
 			}
-			if !colorFound {
-				tileColors = append(tileColors, color)
-				colCount++
-			}
-			if colCount >= 4 {
-				break
-			}
 		}
-		if colCount >= 4 {
-			break
+		if len(tilePalette) > 4 {
+			tilePalette = tilePalette[:4]
 		}
 	}
 
-	//sort colors (checking for -t)
-	var paletteFound bool
-	for i := range palettes {
-		//compare current palette against all in palettes. Shouldn't
-		//run at all if no palettes are defined
-		if palettes[i].compare(tileColors) {
-			//Order of already defined palette to be preserved
-			tilePalette = palettes[i]
-			paletteFound = true
-			//we're done, let's move on
-			break
+
+	//If this palette contains the same colors as a previous one in this
+	//image, we want it to output the same indices
+	if !alreadyPaletted {
+		//Check if this tile's palette matches an existing palette.
+		var paletteFound bool
+		for i := range palettes {
+			//compare current palette against all in palettes. Shouldn't
+			//run at all if no palettes are defined
+			if compare(palettes[i], tilePalette) {
+				//Order of already defined palette to be preserved
+				tilePalette = palettes[i]
+				paletteFound = true
+				//we're done, let's move on
+				break
+			}
 		}
-	}
-	//if palette does not match an existing palette
-	if !paletteFound {
-		//sort the palette nicely
-		tilePalette = sliceToPalette(tileColors)
-		tilePalette = tilePalette.sort()
-		//add new palette to set of image palettes
-		palettes = append(palettes, tilePalette)
+		//if palette does not match an existing palette
+		if !paletteFound {
+			//sort the palette nicely
+			tilePalette = sort(tilePalette)
+			//add new palette to set of image palettes
+			palettes = append(palettes, tilePalette)
+		}
 	}
 
 	//create slice of color indices
 	var pixelCount uint
 	for y := size.Min.Y; y < size.Max.Y; y++ {
 		for x:= size.Min.X; x < size.Max.X; x++ {
-			var i byte
-			for i = 0; i < 4; i++ {
-				if tile.At(x,y) == tilePalette[i] {
-					break
-				}
-			}
-			rawData[pixelCount] = i
+			//var i byte
+			//for i = 0; i < 4; i++ {
+			//	if tile.At(x,y) == tilePalette[i] {
+			//		break
+			//	}
+			//}
+			//rawData[pixelCount] = i
+			rawData[pixelCount] = byte(tilePalette.Index(tile.At(x,y)))
 			pixelCount++
 		}
 	}
-	//loop until you find your color
-	//set the index in the slice
 	//"Encode" into gameboy format
 	//for each row
 	for i := 0; i < int(8*8/8); i += 1 {
@@ -239,7 +247,7 @@ func Encode(tile image.Image) []byte {
 
 //sort() sorts the colors in a palette approximately from
 //brightest to dimmest using a simple bubblesort
-func (p palette) sort() palette{
+func sort(p color.Palette) color.Palette {
 	//Since it's such a small list, we're not checking if swapping is still
 	//occurring, just sorting through to max time. More efficient sorting
 	//would be nice but likely isn't worth the effort
@@ -248,8 +256,8 @@ func (p palette) sort() palette{
 	if spriteMode {
 		min = 1
 	}
-	for i := 0; i<4; i++ {
-		for j := min; j<3-i; j++ {
+	for i := 0; i < len(p); i++ {
+		for j := min; j < (len(p) - 1) - i; j++ {
 			var r0, g0, b0, r1, g1, b1 uint32;
 			if p[j] != nil {
 				r0, g0, b0, _ = p[j].RGBA()
@@ -278,7 +286,7 @@ func (p palette) sort() palette{
 }
 
 //Compares a palette to an array of colors to determine if all colors are in the palette.
-func (a palette) compare(b []color.Color) bool{
+func compare(a, b color.Palette) bool{
 	var match bool
 	//select a color to check
 	for i := range b {
@@ -298,15 +306,4 @@ func (a palette) compare(b []color.Color) bool{
 	}
 	//No match fails, success!
 	return true
-}
-
-func sliceToPalette(a []color.Color) palette {
-	var p palette
-	for i := range a {
-		if i >= 4 {
-			break
-		}
-		p[i] = a[i]
-	}
-	return p
 }
